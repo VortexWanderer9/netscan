@@ -1,90 +1,58 @@
 # netscan
 
-A simple, dependency-free Python terminal tool for local network scanning:
-host discovery (ping sweep) and TCP port scanning.
-
-```
- _   _ _____ _____ ____   ____ _    _   _
-| \ | | ____|_   _/ ___| / ___/ \  | \ | |
-|  \| |  _|   | | \___ \| |   / _ \ |  \| |
-| |\  | |___  | |  ___) | |__/ ___ \| |\  |
-|_| \_|_____| |_| |____/ \____/_/   \_\_| \_|
-
-```
+A dependency-free Python terminal network scanner for authorized testing. It supports host discovery, TCP and UDP probes, service banners, lightweight OS/MAC hints, exports, reusable profiles, and scan diffs.
 
 ## Requirements
 
 - Python 3.7+
-- No third-party packages — uses only the standard library
-- `ping` available on your system PATH (pre-installed on macOS/Linux/Windows)
+- `ping` on the system `PATH` for host discovery
+- Linux `/proc/net/arp` is used for MAC/vendor hints when available
 
-## Install
-
-Nothing to install. Just download `netscan.py` and run it with Python.
-
-```bash
-python3 netscan.py --help
-```
-
-## Usage
-
-### 1. Discover live hosts on a subnet
+## Commands
 
 ```bash
 python3 netscan.py hosts 192.168.1.0/24
+python3 netscan.py ports 192.168.1.10 --ports common
+python3 netscan.py ports 192.168.1.10 --protocol udp --ports 53,123,161
+python3 netscan.py quick 192.168.1.0/24 --ports 22,80,443
+python3 netscan.py watch 192.168.1.10 --ports common --interval 30
 ```
 
-Options:
-- `--timeout SECONDS` — ping timeout per host (default: 1.0)
-- `--threads N` — concurrent threads (default: 100)
+Host results include reverse DNS, ping TTL with a rough OS guess, and ARP MAC/vendor data. Open TCP ports receive a small banner probe, including an HTTP `HEAD` request. UDP probes currently cover DNS, NTP, and SNMP; an unanswered UDP probe is reported as closed/filtered rather than definitively closed.
 
-### 2. Scan TCP ports on a host
+Common options for scans:
+
+- `--output results.json` or `--output results.csv` — export structured records.
+- `--delay SECONDS` — delay between probes per worker.
+- `--threads N` and `--timeout SECONDS` — control concurrency and probe timeouts.
+- `--no-color` — disable ANSI output colors.
+- `ports --no-banner` — skip TCP banner grabbing.
+
+`quick` discovers live hosts and scans every result automatically. `watch` repeats a port or host scan and prints only additions/removals after the first pass.
+
+## Saved profiles
+
+Create `.netscan.yaml` with simple named sections:
+
+```yaml
+office:
+  target: 192.168.1.10
+  ports: 22,80,443
+  protocol: tcp
+  timeout: 0.5
+  threads: 50
+  delay: 0.02
+  output: office.json
+```
+
+Run it with:
 
 ```bash
-python3 netscan.py ports 192.168.1.10
+python3 netscan.py profile office
 ```
 
-By default this scans ports 1–1024. Other ways to specify ports:
+The profile reader intentionally supports this small YAML subset and has no third-party dependency. Use `mode: hosts` with `cidr:` for a saved host discovery profile.
 
-```bash
-python3 netscan.py ports 192.168.1.10 --ports 1-1024
-python3 netscan.py ports 192.168.1.10 --ports 22,80,443
-python3 netscan.py ports 192.168.1.10 --ports common   # well-known service ports only
-python3 netscan.py ports scanme.nmap.org --ports 1-1000
-```
+## Safety
 
-Options:
-- `--timeout SECONDS` — TCP connect timeout per port (default: 0.5)
-- `--threads N` — concurrent threads (default: 200)
-
-## Example output
-
-```
-Scanning 192.168.1.10 (192.168.1.10) — 1024 port(s) ...
-
-  [+] 22/tcp   open   SSH
-  [+] 80/tcp   open   HTTP
-  [+] 443/tcp  open   HTTPS
-
-3 open port(s) found. Scan took 1.84s.
-```
-
-## How it works
-
-- **Host discovery** shells out to the system `ping` command once per address
-  in the given CIDR range, threaded for speed, and resolves reverse DNS names
-  when available.
-- **Port scanning** attempts a raw TCP connect (`connect_ex`) to each port in
-  the given range/list, threaded for speed, and labels well-known ports
-  (SSH, HTTP, HTTPS, SMB, RDP, MySQL, etc.) using a small built-in lookup
-  table.
-
-## Responsible use
-
-Only scan networks and hosts you own or have explicit permission to test.
-Scanning devices or networks you don't control may be illegal or against
-their terms of service.
-
-## License
-
-Use, modify, and share freely.
+Only scan networks and hosts you own or have explicit permission to test. Scanning devices or networks you do not control may be illegal or against their terms of service. The vulnerability hints are simple exposure warnings, not CVE detection.
