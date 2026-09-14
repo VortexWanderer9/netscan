@@ -10,7 +10,6 @@ host discovery (ping sweep) and TCP port scanning.
 | |\  | |___  | |  ___) | |__/ ___ \| |\  |
 |_| \_|_____| |_| |____/ \____/_/   \_\_| \_|
 
-      ln --||__   simple network scanner
 ```
 
 ## Requirements
